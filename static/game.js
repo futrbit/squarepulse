@@ -37,13 +37,13 @@ const TYPES = {
     animal: 0.075,
     trap: 0.05,
     green: 0.1,
-    yellowTap: 0.05, // New yellow tap square
+    yellowTap: 0.05,
     red: 0.0375,
     blue: 0.0375,
     yellow: 0.0375,
     white: 0.0375
 };
-const ANIMALS = ["🐱", "🐶", "🐦", "🐢", "🦁", "🐼", "🐘", "🐔", "🐠"]; // Added chicken and fish
+const ANIMALS = ["🐱", "🐶", "🐦", "🐢", "🦁", "🐼", "🐘", "🐔", "🐠"];
 const TRAPS = ["snake", "black", "number0"];
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
@@ -52,7 +52,7 @@ let activeTimeouts = [];
 let particles = [];
 let lastFrameTime = performance.now();
 let speedUpInterval = null;
-let recentAnimalTaps = []; // Track animal taps for "collect 3" bonus
+let recentAnimalTaps = [];
 
 let localData = (() => {
     try {
@@ -102,10 +102,8 @@ function adjustCanvasForMobile() {
     const logicalWidth = isMobile ? 400 : 500;
     const logicalHeight = isMobile ? 400 : 500;
     SQUARE_SIZE = logicalWidth / (GRID_SIZE + 4);
-    // Set canvas logical size
     canvas.width = logicalWidth;
     canvas.height = logicalHeight;
-    // Adjust for device pixel ratio
     const dpr = window.devicePixelRatio || 1;
     canvas.width = logicalWidth * dpr;
     canvas.height = logicalHeight * dpr;
@@ -134,7 +132,7 @@ function resetGame() {
         gameState.timer = gameState.mode === "1-minute" ? 60 : gameState.mode === "2-minute" ? 120 : 0;
         gameState.flashDur = DIFFICULTIES[gameState.difficulty].flash;
         particles = [];
-        recentAnimalTaps = []; // Reset animal tap tracking
+        recentAnimalTaps = [];
         activeTimeouts.forEach(clearTimeout);
         activeTimeouts = [];
         if (speedUpInterval) clearInterval(speedUpInterval);
@@ -290,7 +288,7 @@ function startGame() {
         modal.classList.add("hidden");
         canvas.classList.remove("paused");
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        recentAnimalTaps = []; // Reset animal tap tracking
+        recentAnimalTaps = [];
         updateScoreText();
         lastFrameTime = performance.now();
         if (speedUpInterval) clearInterval(speedUpInterval);
@@ -382,7 +380,6 @@ function fadeSquare(row, col) {
     gameState.grid[row][col].state = "fading";
     gameState.activeFlashes--;
     if (gameState.grid[row][col].type === "blank") {
-        // No point loss on miss
         gameState.streak = 0;
         updateScoreText();
         if (canvas) canvas.classList.add("shake");
@@ -416,7 +413,7 @@ function startInput(e) {
     const { x, y } = getCoords(e);
     const row = Math.floor((y - SQUARE_SIZE) / SQUARE_SIZE);
     const col = Math.floor((x - SQUARE_SIZE * 2) / SQUARE_SIZE);
-    console.log(`startInput: x=${x}, y=${y}, row=${row}, col=${col}, touchType=${e.type}, touchCount=${e.touches?.length || 0}`);
+    console.log(`startInput: x=${x.toFixed(2)}, y=${y.toFixed(2)}, row=${row}, col=${col}, touchType=${e.type}, touchCount=${e.touches?.length || 0}`);
     if (row >= 0 && row < GRID_SIZE && col >= 0 && col < GRID_SIZE && gameState.grid[row][col].state === "flashing") {
         dragStart = { row, col, x, y, type: gameState.grid[row][col].type, value: gameState.grid[row][col].value };
         dragActive = true;
@@ -430,9 +427,9 @@ function startInput(e) {
             else if (dragStart.type === "letter") canvas.classList.add("highlight-left");
             else if (dragStart.type === "number") canvas.classList.add("highlight-right");
         }
-        console.log(`Input started: ${dragStart.type} (${dragStart.value}) at (${row},${col}), x:${x}, y:${y}`);
+        console.log(`Input started: ${dragStart.type} (${dragStart.value}) at (${row},${col}), x:${x.toFixed(2)}, y:${y.toFixed(2)}`);
     } else {
-        console.log(`Input ignored: row=${row}, col=${col}, x=${x}, y=${y}, state=${gameState.grid[row]?.[col]?.state}`);
+        console.log(`Input ignored: row=${row}, col=${col}, x=${x.toFixed(2)}, y=${y.toFixed(2)}, state=${gameState.grid[row]?.[col]?.state}`);
         gameState.paused = false;
     }
 }
@@ -445,7 +442,7 @@ function moveInput(e) {
     e.preventDefault();
     const { x, y } = getCoords(e);
     dragPath.push({ x, y });
-    console.log(`Drag moved: x=${x}, y=${y}, touchType=${e.type}, touchCount=${e.touches?.length || 0}`);
+    console.log(`Drag moved: x=${x.toFixed(2)}, y=${y.toFixed(2)}, touchType=${e.type}, touchCount=${e.touches?.length || 0}`);
 }
 
 function endInput(e) {
@@ -459,7 +456,7 @@ function endInput(e) {
     e.preventDefault();
     const { x, y } = getCoords(e);
     const sq = gameState.grid[dragStart.row][dragStart.col];
-    console.log(`endInput: x=${x}, y=${y}, touchType=${e.type}, touchCount=${e.touches?.length || 0}`);
+    console.log(`endInput: x=${x.toFixed(2)}, y=${y.toFixed(2)}, touchType=${e.type}, touchCount=${e.touches?.length || 0}, canvasWidth=${canvas.width}, SQUARE_SIZE=${SQUARE_SIZE}`);
     if (sq.state !== "flashing") {
         console.log(`Square no longer flashing: state=${sq.state}, type=${sq.type}, value=${sq.value}`);
         resetDrag();
@@ -471,8 +468,9 @@ function endInput(e) {
     let points = 0;
     let livesLost = 0;
     const isTap = Math.abs(x - dragStart.x) < 10 && Math.abs(y - dragStart.y) < 10;
-    const dropZone = sq.type === "letter" ? (x < SQUARE_SIZE * 2 ? "letters" : "none") : (x > canvas.width - SQUARE_SIZE * 2 ? "numbers" : "none");
-    console.log(`End input: isTap=${isTap}, x=${x}, y=${y}, dx=${x - dragStart.x}, dy=${y - dragStart.y}, dropZone=${dropZone}, type=${sq.type}, value=${sq.value}`);
+    const dropZone = sq.type === "letter" ? (x < SQUARE_SIZE * 2.5 ? "letters" : "none") :
+                     sq.type === "number" ? (x > canvas.width / (window.devicePixelRatio || 1) - SQUARE_SIZE * 2.5 ? "numbers" : "none") : "none";
+    console.log(`End input: isTap=${isTap}, x=${x.toFixed(2)}, y=${y.toFixed(2)}, dx=${(x - dragStart.x).toFixed(2)}, dy=${(y - dragStart.y).toFixed(2)}, dropZone=${dropZone}, type=${sq.type}, value=${sq.value}, rightZoneThreshold=${(canvas.width / (window.devicePixelRatio || 1) - SQUARE_SIZE * 2.5).toFixed(2)}`);
 
     if (isTap) {
         if (["green", "yellowTap", "animal", "blank", "trap"].includes(sq.type)) {
@@ -483,18 +481,17 @@ function endInput(e) {
             } else if (sq.type === "animal") {
                 points = 51;
                 handleAnimal(sq.value);
-                // Track animal tap for "collect 3" bonus
                 recentAnimalTaps.push(Date.now());
-                recentAnimalTaps = recentAnimalTaps.filter(t => Date.now() - t < 2000); // Keep taps within 2s
+                recentAnimalTaps = recentAnimalTaps.filter(t => Date.now() - t < 2000);
                 if (recentAnimalTaps.length >= 3) {
-                    points += 50; // Bonus for 3 animals in 2s
+                    points += 50;
                     console.log(`Animal combo bonus: 3 animals tapped, +50 points`);
-                    recentAnimalTaps = []; // Reset after bonus
+                    recentAnimalTaps = [];
                 }
                 playSound("jingle");
             } else if (sq.type === "blank") {
                 const timeSinceStart = Date.now() - sq.startTime;
-                points = Math.max(1, Math.floor(10 - timeSinceStart / 100)) * 10; // Speed-based points (10 to 1) x 10
+                points = Math.max(1, Math.floor(10 - timeSinceStart / 100)) * 10;
                 playSound("pop");
                 console.log(`Blank tapped: time=${timeSinceStart}ms, basePoints=${Math.floor(10 - timeSinceStart / 100)}, totalPoints=${points}`);
             } else if (sq.type === "trap") {
@@ -560,7 +557,7 @@ function endInput(e) {
             setTimeout(() => canvas?.classList.remove("shake"), 300);
             playSound("hiss");
             alert(`Invalid drop zone for ${sq.type}! Drag letters left, numbers right.`);
-            console.log(`Failed drop: wrong zone for ${sq.type}, x=${x}, dropZone=${dropZone}`);
+            console.log(`Failed drop: wrong zone for ${sq.type}, x=${x.toFixed(2)}, dropZone=${dropZone}, rightZoneThreshold=${(canvas.width / (window.devicePixelRatio || 1) - SQUARE_SIZE * 2.5).toFixed(2)}`);
         }
     } else if (["red", "blue", "yellow", "white"].includes(sq.type)) {
         const dx = x - dragStart.x, dy = y - dragStart.y;
@@ -573,7 +570,7 @@ function endInput(e) {
             gameState.coloredDrags[sq.type]++;
             fadeClickedSquare(dragStart.row, dragStart.col);
             playSound("pop");
-            console.log(`Valid drag: ${sq.type}, dx=${dx}, dy=${dy}, points=${points}, coloredDrags=${JSON.stringify(gameState.coloredDrags)}`);
+            console.log(`Valid drag: ${sq.type}, dx=${dx.toFixed(2)}, dy=${dy.toFixed(2)}, points=${points}, coloredDrags=${JSON.stringify(gameState.coloredDrags)}`);
         } else {
             points = -5;
             livesLost = 1;
@@ -582,7 +579,7 @@ function endInput(e) {
             setTimeout(() => canvas?.classList.remove("shake"), 300);
             playSound("hiss");
             alert(`Invalid drag direction for ${sq.type} square!`);
-            console.log(`Invalid drag: ${sq.type}, dx=${dx}, dy=${dy}`);
+            console.log(`Invalid drag: ${sq.type}, dx=${dx.toFixed(2)}, dy=${dy.toFixed(2)}`);
         }
     }
 
@@ -641,8 +638,8 @@ function handleAnimal(value) {
 }
 
 function triggerExplosion(zone) {
-    const x = zone === "letters" ? SQUARE_SIZE / 2 : canvas.width - SQUARE_SIZE * 1.5;
-    const y = canvas.height - SQUARE_SIZE * 4;
+    const x = zone === "letters" ? SQUARE_SIZE / 2 : canvas.width / (window.devicePixelRatio || 1) - SQUARE_SIZE * 1.5;
+    const y = canvas.height / (window.devicePixelRatio || 1) - SQUARE_SIZE * 4;
     for (let i = 0; i < 20; i++) {
         particles.push({
             x, y,
@@ -694,18 +691,20 @@ function getCoords(e) {
         return { x: 0, y: 0 };
     }
     const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
     let x, y;
     if (e.touches && e.touches.length) {
-        x = (e.touches[0].clientX - rect.left) * (canvas.width / rect.width) / dpr;
-        y = (e.touches[0].clientY - rect.top) * (canvas.height / rect.height) / dpr;
+        x = e.touches[0].clientX - rect.left;
+        y = e.touches[0].clientY - rect.top;
     } else {
-        x = (e.clientX - rect.left) * (canvas.width / rect.width) / dpr;
-        y = (e.clientY - rect.top) * (canvas.height / rect.height) / dpr;
+        x = e.clientX - rect.left;
+        y = e.clientY - rect.top;
     }
+    const dpr = window.devicePixelRatio || 1;
+    x = (x * (canvas.width / rect.width)) / dpr;
+    y = (y * (canvas.height / rect.height)) / dpr;
     x = Math.min(Math.max(x, 0), canvas.width / dpr);
     y = Math.min(Math.max(y, 0), canvas.height / dpr);
-    console.log(`getCoords: clientX=${e.clientX}, clientY=${e.clientY}, rectLeft=${rect.left}, rectTop=${rect.top}, scaledX=${x}, scaledY=${y}, rectWidth=${rect.width}, rectHeight=${rect.height}, dpr=${dpr}`);
+    console.log(`getCoords: clientX=${e.clientX || e.touches[0]?.clientX}, clientY=${e.clientY || e.touches[0]?.clientY}, rectLeft=${rect.left}, rectTop=${rect.top}, rectWidth=${rect.width}, rectHeight=${rect.height}, scaledX=${x.toFixed(2)}, scaledY=${y.toFixed(2)}, dpr=${dpr}`);
     return { x, y };
 }
 
@@ -725,7 +724,7 @@ function drawSlot(x, y, value, type) {
         return;
     }
     ctx.strokeStyle = "#666";
-    ctx.lineWidth = 2; // Thicker border for visibility
+    ctx.lineWidth = 2;
     ctx.strokeRect(x, y, SQUARE_SIZE, SQUARE_SIZE);
     ctx.fillStyle = type === "letters" ? "#8fbf8f" : "#bf8f8f";
     ctx.fillRect(x, y, SQUARE_SIZE, SQUARE_SIZE);
@@ -753,7 +752,8 @@ function render() {
     }
     try {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        console.log(`Rendering canvas: letters=${JSON.stringify(gameState.slots.letters)}, numbers=${JSON.stringify(gameState.slots.numbers)}, paused=${gameState.paused}, timer=${gameState.timer.toFixed(1)}`);
+        const dpr = window.devicePixelRatio || 1;
+        console.log(`Rendering canvas: letters=${JSON.stringify(gameState.slots.letters)}, numbers=${JSON.stringify(gameState.slots.numbers)}, paused=${gameState.paused}, timer=${gameState.timer.toFixed(1)}, canvasWidth=${canvas.width/dpr}, canvasHeight=${canvas.height/dpr}`);
 
         if (gameState.paused && modal?.style.display === "block") {
             ctx.fillStyle = "#fff";
@@ -766,18 +766,24 @@ function render() {
             return;
         }
 
-        // Enhanced drop zone visuals
-        ctx.fillStyle = "rgba(255, 255, 0, 0.5)"; // Brighter yellow for letters
+        ctx.fillStyle = "rgba(255, 255, 0, 0.7)";
         ctx.fillRect(0, 0, SQUARE_SIZE * 2, canvas.height);
         ctx.strokeStyle = "#FFFF00";
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 4;
         ctx.strokeRect(0, 0, SQUARE_SIZE * 2, canvas.height);
-        ctx.fillStyle = "rgba(255, 255, 255, 0.5)"; // Brighter white for numbers
-        ctx.fillRect(canvas.width - SQUARE_SIZE * 2, 0, SQUARE_SIZE * 2, canvas.height);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+        ctx.fillRect(canvas.width / dpr - SQUARE_SIZE * 2, 0, SQUARE_SIZE * 2, canvas.height);
         ctx.strokeStyle = "#FFFFFF";
-        ctx.strokeRect(canvas.width - SQUARE_SIZE * 2, 0, SQUARE_SIZE * 2, canvas.height);
+        ctx.lineWidth = 4;
+        ctx.strokeRect(canvas.width / dpr - SQUARE_SIZE * 2, 0, SQUARE_SIZE * 2, canvas.height);
+        ctx.fillStyle = "#000";
+        ctx.font = "12px Arial";
+        ctx.textAlign = "left";
+        ctx.fillText("Letters", SQUARE_SIZE / 2, 20);
+        ctx.textAlign = "right";
+        ctx.fillText("Numbers", canvas.width / dpr - SQUARE_SIZE / 2, 20);
         ctx.fillStyle = "rgba(0, 255, 0, 0.15)";
-        ctx.fillRect(SQUARE_SIZE * 2, 0, canvas.width - SQUARE_SIZE * 4, SQUARE_SIZE);
+        ctx.fillRect(SQUARE_SIZE * 2, 0, canvas.width / dpr - SQUARE_SIZE * 4, SQUARE_SIZE);
 
         for (let r = 0; r < GRID_SIZE; r++) {
             for (let c = 0; c < GRID_SIZE; c++) {
@@ -789,17 +795,15 @@ function render() {
         }
 
         for (let i = 0; i < 8; i++) {
-            const ly = canvas.height - SQUARE_SIZE * (8 - i);
-            const ny = canvas.height - SQUARE_SIZE * (8 - i);
+            const ly = canvas.height / dpr - SQUARE_SIZE * (8 - i);
+            const ny = canvas.height / dpr - SQUARE_SIZE * (8 - i);
             drawSlot(SQUARE_SIZE / 2, ly, gameState.slots.letters[i], "letters");
-            drawSlot(canvas.width - SQUARE_SIZE * 1.5, ny, gameState.slots.numbers[i], "numbers");
+            drawSlot(canvas.width / dpr - SQUARE_SIZE * 1.5, ny, gameState.slots.numbers[i], "numbers");
         }
 
         if (dragActive && ["letter", "number"].includes(dragStart?.type)) {
-            ctx.fillStyle = "rgba(255, 255, 0, 0.7)"; // Brighter during drag
-            ctx.fillRect(0, 0, SQUARE_SIZE * 2, canvas.height);
-            ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
-            ctx.fillRect(canvas.width - SQUARE_SIZE * 2, 0, SQUARE_SIZE * 2, canvas.height);
+            ctx.fillStyle = dragStart.type === "letter" ? "rgba(255, 255, 0, 0.9)" : "rgba(255, 255, 255, 0.9)";
+            ctx.fillRect(dragStart.type === "letter" ? 0 : canvas.width / dpr - SQUARE_SIZE * 2, 0, SQUARE_SIZE * 2, canvas.height);
         }
 
         if (dragActive && dragPath.length > 1) {
@@ -869,7 +873,7 @@ function getColor(type) {
         case "yellow": return "#f7f748";
         case "white": return "#f7f7f7";
         case "green": return "#3ee23e";
-        case "yellowTap": return "#FFFF00"; // Bright yellow for new tap square
+        case "yellowTap": return "#FFFF00";
         case "animal": return "#6b8cff";
         case "letter": return "#8fbf8f";
         case "number": return "#bf8f8f";
