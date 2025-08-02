@@ -100,7 +100,15 @@ function adjustCanvasForMobile() {
     canvas.width = isMobile ? 400 : 500;
     canvas.height = isMobile ? 400 : 500;
     SQUARE_SIZE = canvas.width / (GRID_SIZE + 4);
-    console.log(`Canvas adjusted: width=${canvas.width}, height=${canvas.height}, SQUARE_SIZE=${SQUARE_SIZE}`);
+    // Set canvas CSS size to match logical size for pixel ratio
+    canvas.style.width = canvas.width + "px";
+    canvas.style.height = canvas.height + "px";
+    // Adjust for device pixel ratio
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width *= dpr;
+    canvas.height *= dpr;
+    ctx.scale(dpr, dpr);
+    console.log(`Canvas adjusted: width=${canvas.width}, height=${canvas.height}, SQUARE_SIZE=${SQUARE_SIZE}, dpr=${dpr}`);
 }
 adjustCanvasForMobile();
 
@@ -367,7 +375,7 @@ function fadeSquare(row, col) {
     gameState.grid[row][col].state = "fading";
     gameState.activeFlashes--;
     if (gameState.grid[row][col].type === "blank") {
-        gameState.score -= 10; // Changed: -10 points instead of -5 points and 1 life
+        gameState.score -= 10;
         gameState.streak = 0;
         updateScoreText();
         if (canvas) canvas.classList.add("shake");
@@ -379,11 +387,12 @@ function fadeSquare(row, col) {
     }, 200));
 }
 
-canvas?.addEventListener("touchstart", startInput);
+// Updated touch event listeners with passive: false
+canvas?.addEventListener("touchstart", startInput, { passive: false });
 canvas?.addEventListener("mousedown", startInput);
-canvas?.addEventListener("touchmove", moveInput);
+canvas?.addEventListener("touchmove", moveInput, { passive: false });
 canvas?.addEventListener("mousemove", moveInput);
-canvas?.addEventListener("touchend", endInput);
+canvas?.addEventListener("touchend", endInput, { passive: false });
 canvas?.addEventListener("mouseup", endInput);
 canvas?.addEventListener("touchcancel", (e) => {
     console.log("Touchcancel fired");
@@ -401,6 +410,7 @@ function startInput(e) {
     const { x, y } = getCoords(e);
     const row = Math.floor((y - SQUARE_SIZE) / SQUARE_SIZE);
     const col = Math.floor((x - SQUARE_SIZE * 2) / SQUARE_SIZE);
+    console.log(`startInput: x=${x}, y=${y}, row=${row}, col=${col}, touchType=${e.type}, touchCount=${e.touches?.length || 0}`);
     if (row >= 0 && row < GRID_SIZE && col >= 0 && col < GRID_SIZE && gameState.grid[row][col].state === "flashing") {
         dragStart = { row, col, x, y, type: gameState.grid[row][col].type, value: gameState.grid[row][col].value };
         dragActive = true;
@@ -429,7 +439,7 @@ function moveInput(e) {
     e.preventDefault();
     const { x, y } = getCoords(e);
     dragPath.push({ x, y });
-    console.log(`Drag moved: x=${x}, y=${y}`);
+    console.log(`Drag moved: x=${x}, y=${y}, touchType=${e.type}, touchCount=${e.touches?.length || 0}`);
 }
 
 function endInput(e) {
@@ -443,6 +453,7 @@ function endInput(e) {
     e.preventDefault();
     const { x, y } = getCoords(e);
     const sq = gameState.grid[dragStart.row][dragStart.col];
+    console.log(`endInput: x=${x}, y=${y}, touchType=${e.type}, touchCount=${e.touches?.length || 0}`);
     if (sq.state !== "flashing") {
         console.log(`Square no longer flashing: state=${sq.state}, type=${sq.type}, value=${sq.value}`);
         resetDrag();
@@ -468,7 +479,7 @@ function endInput(e) {
                 handleAnimal(sq.value);
                 playSound("jingle");
             } else if (sq.type === "blank") {
-                points = 1 + (Date.now() - sq.startTime < 500 ? 5 : 0) - 10; // Changed: -10 points instead of life loss
+                points = 1 + (Date.now() - sq.startTime < 500 ? 5 : 0) - 10;
                 playSound("pop");
             } else if (sq.type === "trap") {
                 if (sq.value === "snake") {
@@ -667,18 +678,19 @@ function getCoords(e) {
         return { x: 0, y: 0 };
     }
     const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
     let x, y;
     if (e.touches && e.touches.length) {
-        x = e.touches[0].clientX - rect.left;
-        y = e.touches[0].clientY - rect.top;
+        x = (e.touches[0].clientX - rect.left) * (canvas.width / rect.width) / dpr;
+        y = (e.touches[0].clientY - rect.top) * (canvas.height / rect.height) / dpr;
     } else {
-        x = e.clientX - rect.left;
-        y = e.clientY - rect.top;
+        x = (e.clientX - rect.left) * (canvas.width / rect.width) / dpr;
+        y = (e.clientY - rect.top) * (canvas.height / rect.height) / dpr;
     }
-    const scaledX = Math.min(Math.max(x * (canvas.width / rect.width), 0), canvas.width);
-    const scaledY = Math.min(Math.max(y * (canvas.height / rect.height), 0), canvas.height);
-    console.log(`getCoords: clientX=${x}, clientY=${y}, scaledX=${scaledX}, scaledY=${scaledY}, rectWidth=${rect.width}, rectHeight=${rect.height}`);
-    return { x: scaledX, y: scaledY };
+    x = Math.min(Math.max(x, 0), canvas.width / dpr);
+    y = Math.min(Math.max(y, 0), canvas.height / dpr);
+    console.log(`getCoords: clientX=${e.clientX}, clientY=${e.clientY}, rectLeft=${rect.left}, rectTop=${rect.top}, scaledX=${x}, scaledY=${y}, rectWidth=${rect.width}, rectHeight=${rect.height}, dpr=${dpr}`);
+    return { x, y };
 }
 
 function updateScoreText() {
@@ -1059,6 +1071,11 @@ function gameLoop(timestamp) {
 }
 
 // Initialize game
-resetGame();
-updateLeaderboard(gameState.mode, gameState.difficulty);
-requestAnimationFrame(gameLoop);
+if (!ctx) {
+    console.error("Canvas context initialization failed");
+    alert("Error: Canvas context not found. Check browser compatibility.");
+} else {
+    resetGame();
+    updateLeaderboard(gameState.mode, gameState.difficulty);
+    requestAnimationFrame(gameLoop);
+}
