@@ -31,18 +31,19 @@ const DIFFICULTIES = {
     Hard: { flash: 1000, maxFlashes: 3 }
 };
 const TYPES = {
-    blank: 0.25,
+    blank: 0.2375,
     number: 0.2,
     letter: 0.2,
     animal: 0.075,
     trap: 0.05,
     green: 0.1,
+    yellowTap: 0.05, // New yellow tap square
     red: 0.0375,
     blue: 0.0375,
     yellow: 0.0375,
     white: 0.0375
 };
-const ANIMALS = ["🐱", "🐶", "🐦", "🐢", "🦁", "🐼", "🐘"];
+const ANIMALS = ["🐱", "🐶", "🐦", "🐢", "🦁", "🐼", "🐘", "🐔", "🐠"]; // Added chicken and fish
 const TRAPS = ["snake", "black", "number0"];
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
@@ -51,6 +52,7 @@ let activeTimeouts = [];
 let particles = [];
 let lastFrameTime = performance.now();
 let speedUpInterval = null;
+let recentAnimalTaps = []; // Track animal taps for "collect 3" bonus
 
 let localData = (() => {
     try {
@@ -97,18 +99,20 @@ let dragPath = [];
 
 function adjustCanvasForMobile() {
     const isMobile = window.innerWidth <= 600;
-    canvas.width = isMobile ? 400 : 500;
-    canvas.height = isMobile ? 400 : 500;
-    SQUARE_SIZE = canvas.width / (GRID_SIZE + 4);
-    // Set canvas CSS size to match logical size for pixel ratio
-    canvas.style.width = canvas.width + "px";
-    canvas.style.height = canvas.height + "px";
+    const logicalWidth = isMobile ? 400 : 500;
+    const logicalHeight = isMobile ? 400 : 500;
+    SQUARE_SIZE = logicalWidth / (GRID_SIZE + 4);
+    // Set canvas logical size
+    canvas.width = logicalWidth;
+    canvas.height = logicalHeight;
     // Adjust for device pixel ratio
     const dpr = window.devicePixelRatio || 1;
-    canvas.width *= dpr;
-    canvas.height *= dpr;
-    ctx.scale(dpr, dpr);
-    console.log(`Canvas adjusted: width=${canvas.width}, height=${canvas.height}, SQUARE_SIZE=${SQUARE_SIZE}, dpr=${dpr}`);
+    canvas.width = logicalWidth * dpr;
+    canvas.height = logicalHeight * dpr;
+    canvas.style.width = `${logicalWidth}px`;
+    canvas.style.height = `${logicalHeight}px`;
+    if (ctx) ctx.scale(dpr, dpr);
+    console.log(`Canvas adjusted: logicalWidth=${logicalWidth}, logicalHeight=${logicalHeight}, canvasWidth=${canvas.width}, canvasHeight=${canvas.height}, SQUARE_SIZE=${SQUARE_SIZE}, dpr=${dpr}`);
 }
 adjustCanvasForMobile();
 
@@ -130,6 +134,7 @@ function resetGame() {
         gameState.timer = gameState.mode === "1-minute" ? 60 : gameState.mode === "2-minute" ? 120 : 0;
         gameState.flashDur = DIFFICULTIES[gameState.difficulty].flash;
         particles = [];
+        recentAnimalTaps = []; // Reset animal tap tracking
         activeTimeouts.forEach(clearTimeout);
         activeTimeouts = [];
         if (speedUpInterval) clearInterval(speedUpInterval);
@@ -285,6 +290,7 @@ function startGame() {
         modal.classList.add("hidden");
         canvas.classList.remove("paused");
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        recentAnimalTaps = []; // Reset animal tap tracking
         updateScoreText();
         lastFrameTime = performance.now();
         if (speedUpInterval) clearInterval(speedUpInterval);
@@ -356,9 +362,10 @@ function initFlashes() {
     else if (rand < TYPES.blank + TYPES.number + TYPES.letter + TYPES.animal) { type = "animal"; value = ANIMALS[Math.floor(Math.random() * ANIMALS.length)]; }
     else if (rand < TYPES.blank + TYPES.number + TYPES.letter + TYPES.animal + TYPES.trap) { type = "trap"; value = TRAPS[Math.floor(Math.random() * TRAPS.length)]; }
     else if (rand < TYPES.blank + TYPES.number + TYPES.letter + TYPES.animal + TYPES.trap + TYPES.green) type = "green";
-    else if (rand < TYPES.blank + TYPES.number + TYPES.letter + TYPES.animal + TYPES.trap + TYPES.green + TYPES.red) type = "red";
-    else if (rand < TYPES.blank + TYPES.number + TYPES.letter + TYPES.animal + TYPES.trap + TYPES.green + TYPES.red + TYPES.blue) type = "blue";
-    else if (rand < TYPES.blank + TYPES.number + TYPES.letter + TYPES.animal + TYPES.trap + TYPES.green + TYPES.red + TYPES.blue + TYPES.yellow) type = "yellow";
+    else if (rand < TYPES.blank + TYPES.number + TYPES.letter + TYPES.animal + TYPES.trap + TYPES.green + TYPES.yellowTap) type = "yellowTap";
+    else if (rand < TYPES.blank + TYPES.number + TYPES.letter + TYPES.animal + TYPES.trap + TYPES.green + TYPES.yellowTap + TYPES.red) type = "red";
+    else if (rand < TYPES.blank + TYPES.number + TYPES.letter + TYPES.animal + TYPES.trap + TYPES.green + TYPES.yellowTap + TYPES.red + TYPES.blue) type = "blue";
+    else if (rand < TYPES.blank + TYPES.number + TYPES.letter + TYPES.animal + TYPES.trap + TYPES.green + TYPES.yellowTap + TYPES.red + TYPES.blue + TYPES.yellow) type = "yellow";
     else type = "white";
 
     gameState.grid[row][col] = { type, state: "flashing", timer: gameState.flashDur, value, startTime: Date.now() };
@@ -375,7 +382,7 @@ function fadeSquare(row, col) {
     gameState.grid[row][col].state = "fading";
     gameState.activeFlashes--;
     if (gameState.grid[row][col].type === "blank") {
-        gameState.score -= 10;
+        // No point loss on miss
         gameState.streak = 0;
         updateScoreText();
         if (canvas) canvas.classList.add("shake");
@@ -387,7 +394,6 @@ function fadeSquare(row, col) {
     }, 200));
 }
 
-// Updated touch event listeners with passive: false
 canvas?.addEventListener("touchstart", startInput, { passive: false });
 canvas?.addEventListener("mousedown", startInput);
 canvas?.addEventListener("touchmove", moveInput, { passive: false });
@@ -469,18 +475,28 @@ function endInput(e) {
     console.log(`End input: isTap=${isTap}, x=${x}, y=${y}, dx=${x - dragStart.x}, dy=${y - dragStart.y}, dropZone=${dropZone}, type=${sq.type}, value=${sq.value}`);
 
     if (isTap) {
-        if (["green", "animal", "blank", "trap"].includes(sq.type)) {
-            if (sq.type === "green") {
+        if (["green", "yellowTap", "animal", "blank", "trap"].includes(sq.type)) {
+            if (sq.type === "green" || sq.type === "yellowTap") {
                 points = 10;
                 gameState.greenTaps++;
                 playSound("pop");
             } else if (sq.type === "animal") {
                 points = 51;
                 handleAnimal(sq.value);
+                // Track animal tap for "collect 3" bonus
+                recentAnimalTaps.push(Date.now());
+                recentAnimalTaps = recentAnimalTaps.filter(t => Date.now() - t < 2000); // Keep taps within 2s
+                if (recentAnimalTaps.length >= 3) {
+                    points += 50; // Bonus for 3 animals in 2s
+                    console.log(`Animal combo bonus: 3 animals tapped, +50 points`);
+                    recentAnimalTaps = []; // Reset after bonus
+                }
                 playSound("jingle");
             } else if (sq.type === "blank") {
-                points = 1 + (Date.now() - sq.startTime < 500 ? 5 : 0) - 10;
+                const timeSinceStart = Date.now() - sq.startTime;
+                points = Math.max(1, Math.floor(10 - timeSinceStart / 100)) * 10; // Speed-based points (10 to 1) x 10
                 playSound("pop");
+                console.log(`Blank tapped: time=${timeSinceStart}ms, basePoints=${Math.floor(10 - timeSinceStart / 100)}, totalPoints=${points}`);
             } else if (sq.type === "trap") {
                 if (sq.value === "snake") {
                     points = 0;
@@ -709,6 +725,7 @@ function drawSlot(x, y, value, type) {
         return;
     }
     ctx.strokeStyle = "#666";
+    ctx.lineWidth = 2; // Thicker border for visibility
     ctx.strokeRect(x, y, SQUARE_SIZE, SQUARE_SIZE);
     ctx.fillStyle = type === "letters" ? "#8fbf8f" : "#bf8f8f";
     ctx.fillRect(x, y, SQUARE_SIZE, SQUARE_SIZE);
@@ -749,10 +766,16 @@ function render() {
             return;
         }
 
-        ctx.fillStyle = "rgba(255, 255, 0, 0.15)";
+        // Enhanced drop zone visuals
+        ctx.fillStyle = "rgba(255, 255, 0, 0.5)"; // Brighter yellow for letters
         ctx.fillRect(0, 0, SQUARE_SIZE * 2, canvas.height);
-        ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+        ctx.strokeStyle = "#FFFF00";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(0, 0, SQUARE_SIZE * 2, canvas.height);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.5)"; // Brighter white for numbers
         ctx.fillRect(canvas.width - SQUARE_SIZE * 2, 0, SQUARE_SIZE * 2, canvas.height);
+        ctx.strokeStyle = "#FFFFFF";
+        ctx.strokeRect(canvas.width - SQUARE_SIZE * 2, 0, SQUARE_SIZE * 2, canvas.height);
         ctx.fillStyle = "rgba(0, 255, 0, 0.15)";
         ctx.fillRect(SQUARE_SIZE * 2, 0, canvas.width - SQUARE_SIZE * 4, SQUARE_SIZE);
 
@@ -773,9 +796,9 @@ function render() {
         }
 
         if (dragActive && ["letter", "number"].includes(dragStart?.type)) {
-            ctx.fillStyle = "rgba(255, 255, 0, 0.3)";
+            ctx.fillStyle = "rgba(255, 255, 0, 0.7)"; // Brighter during drag
             ctx.fillRect(0, 0, SQUARE_SIZE * 2, canvas.height);
-            ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+            ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
             ctx.fillRect(canvas.width - SQUARE_SIZE * 2, 0, SQUARE_SIZE * 2, canvas.height);
         }
 
@@ -815,6 +838,7 @@ function drawSquare(x, y, sq) {
         return;
     }
     ctx.strokeStyle = "#666";
+    ctx.lineWidth = 2;
     ctx.strokeRect(x, y, SQUARE_SIZE, SQUARE_SIZE);
     if (sq.state === "flashing") {
         ctx.fillStyle = getColor(sq.type);
@@ -845,6 +869,7 @@ function getColor(type) {
         case "yellow": return "#f7f748";
         case "white": return "#f7f7f7";
         case "green": return "#3ee23e";
+        case "yellowTap": return "#FFFF00"; // Bright yellow for new tap square
         case "animal": return "#6b8cff";
         case "letter": return "#8fbf8f";
         case "number": return "#bf8f8f";
