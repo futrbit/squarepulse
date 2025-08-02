@@ -1,0 +1,12 @@
+{
+    "player": {"name": "k3nn"},
+    "scores": [
+        {"name": "k3nn", "score": 193, "mode": "1-minute", "difficulty": "Hard", "timestamp": "2025-08-02T19:18:00Z"},
+        {"name": "Guest", "score": 426, "mode": "1-minute", "difficulty": "Easy", "timestamp": "2025-08-01T19:15:00Z"},
+        {"name": "kenn", "score": 218, "mode": "1-minute", "difficulty": "Medium", "timestamp": "2025-08-01T19:15:00Z"},
+        {"name": "kenn", "score": 94, "mode": "1-minute", "difficulty": "Medium", "timestamp": "2025-08-01T19:15:00Z"},
+        {"name": "kenn", "score": 77, "mode": "1-minute", "difficulty": "Medium", "timestamp": "2025-08-01T19:15:00Z"},
+        {"name": "Guest", "score": 0, "mode": "1-minute", "difficulty": "Easy", "timestamp": "2025-08-01T19:15:00Z"},
+        {"name": "kennn", "score": 0, "mode": "1-minute", "difficulty": "Medium", "timestamp": "2025-08-01T19:15:00Z"}
+    ]
+}
