@@ -2,51 +2,14 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Square Pulse</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <title>Games Hub</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='hub.css') }}">
 </head>
 <body>
-    <div id="modal" class="modal">
-        <div class="modal-content">
-            <h2>Square Pulse</h2>
-            <input type="text" id="player-name" placeholder="Enter your name (3-15 chars)" maxlength="15">
-            <select id="mode">
-                <option value="1-minute">1 Minute</option>
-                <option value="2-minute">2 Minute</option>
-                <option value="Endless">Endless</option>
-            </select>
-            <select id="difficulty">
-                <option value="Easy">Easy</option>
-                <option value="Medium">Medium</option>
-                <option value="Hard">Hard</option>
-            </select>
-            <button id="start-button">Start Game</button>
-            <div id="leaderboard">
-                <div id="leaderboard-controls">
-                    <select id="leaderboard-mode">
-                        <option value="1-minute">1 Minute</option>
-                        <option value="2-minute">2 Minute</option>
-                        <option value="Endless">Endless</option>
-                    </select>
-                    <select id="leaderboard-difficulty">
-                        <option value="Easy">Easy</option>
-                        <option value="Medium">Medium</option>
-                        <option value="Hard">Hard</option>
-                    </select>
-                </div>
-                <div id="leaderboard-table"></div>
-            </div>
-        </div>
+    <h1>🎮 Games Hub</h1>
+    <div class="game-options">
+        <a href="{{ url_for('squarepulse') }}">🟥 Play Square Pulse</a>
+        <a href="{{ url_for('monkeydrop') }}">🐵 Play Monkey Drop Smash</a>
     </div>
-    <div id="game-controls">
-        <button id="pause-button">Pause</button>
-        <button id="restart-button" style="display: none;">Restart</button>
-        <button id="reset-button">Reset</button>
-    </div>
-    <div id="score-zone"></div>
-    <div id="animal-zone"></div>
-    <canvas id="game-canvas" width="500" height="500"></canvas>
-    <script src="/static/game.js"></script>
 </body>
 </html>
